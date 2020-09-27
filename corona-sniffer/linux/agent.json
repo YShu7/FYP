@@ -1,0 +1,7 @@
+{
+  "id": "example-agent",
+  "location": {
+    "latitude": 60,
+    "longitude": 24
+  }
+}
