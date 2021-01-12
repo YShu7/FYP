@@ -113,6 +113,10 @@ router
     const s = jsonArrayStream(ctx);
     db.getAll(s.each, s.finalize);
   })
+  .get('/agents', (ctx) => {
+    const s = jsonArrayStream(ctx);
+    db.getAgents(s.each, s.finalize);
+  })
   .get('/resolved', (ctx) => {
     const s = jsonArrayStream(ctx);
     db.getResolved(s.each, s.finalize);
@@ -125,11 +129,18 @@ router
     const s = jsonArrayStream(ctx);
     db.getWalksAttached(s.each, s.finalize);
   })
+  .get('/gt', (ctx) => {
+    const s = jsonArrayStream(ctx);
+    db.getWalksGT(s.each, s.finalize);
+  })
   .get("/paths", async(ctx, next) => {
     ctx.redirect('paths.html');
   })
   .get("/paths_attached", async(ctx, next) => {
     ctx.redirect('paths_attached.html');
+  })
+  .get("/paths_gt", async(ctx, next) => {
+    ctx.redirect('gt.html');
   })
 
 app.use(router.routes());

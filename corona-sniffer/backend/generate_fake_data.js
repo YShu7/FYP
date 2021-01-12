@@ -4,6 +4,7 @@ const randomNormal = require('random-normal');
 const db = require('./db');
 const fs = require('fs');
 
+const ONLY_IN_AREA = true;
 const CENTER = {
   // Helsinki, Finland
   latitude: 60.1628855,
@@ -11,11 +12,15 @@ const CENTER = {
 };
 const SCALE_METERS = 1500;
 const RESOLVE_PROB = 0.05;
-const N_WALKS = 300;
-const WALK_LENGTH = 100;
-const TIME_PERIOD = 10;
-const THRESHOLD = 30 * TIME_PERIOD;
-const UPDATE_TIME = 2;
+const N_WALKS = 10;
+const INTERVAL = 60;
+const WALK_LENGTH = 150;
+const TIME_PERIOD = 1;
+const N_PER_ROW = 30;
+const RANGE_M = SCALE_METERS / (N_PER_ROW - 1);
+const THRESHOLD = RANGE_M;
+const UPDATE_TIME = 10 * INTERVAL;
+const CURR_TIME = Math.floor(Date.now() / 1000);
 
 function CoordinateTransforms(center) {
   const EARTH_R = 6.371e6;
@@ -61,69 +66,85 @@ function randomWalk(startXY, walker_id) {
 
   const walk = [];
   const walker = [];
-  const velocity = [];
+  let curr_time = CURR_TIME - Math.floor(Math.random() * 15 * 60);
   const resolved = Math.random() < RESOLVE_PROB;
-  let this_walker = {};
 
-  for (let i = 0; i < WALK_LENGTH; ++i) {
-  	if (i % UPDATE_TIME == 0) {
-  		this_walker = {
-			  real_id: walker_id,
-			  id: randomId(),
-			  resolved: resolved
-			};
-    	walker.push(this_walker);
+  for (let i = 0; i < (WALK_LENGTH / (UPDATE_TIME / INTERVAL)) + 2; i++) {
+    this_walker = {
+      real_id: walker_id,
+      id: randomId(),
+      resolved: resolved,
+      time: curr_time + i * UPDATE_TIME
+    };
+    walker.push(this_walker);
+  }
+
+  let this_walker_id = 0;
+  for (let i = 0; i < WALK_LENGTH / TIME_PERIOD; ++i) {
+    let time = CURR_TIME + i * INTERVAL * TIME_PERIOD;
+    let this_walker = walker[this_walker_id];
+    // console.log(i, this_walker, this_walker_id, this_walker.time + UPDATE_TIME, time);
+    while (this_walker.time + UPDATE_TIME < time) {
+      this_walker = walker[++this_walker_id];
     }
-
+  	
     const meanx = vx;
     const meany = vy;
     vx = randomNormal({ mean: meanx, dev: SIGMA_V }) * (1 - V_DAMP);
     vy = randomNormal({ mean: meany, dev: SIGMA_V }) * (1 - V_DAMP);
-    x += vx * TIME_PERIOD;
-    y += vy * TIME_PERIOD;
-
-    velocity.push({
-    	walker: this_walker,
-    	time: i,
-    	meanx: meanx,
-    	meany: meany,
-    	dev: SIGMA_V,
-    	ratio: (1 - V_DAMP),
-    	vx: vx,
-    	vy: vy
-    });
+    x += vx * INTERVAL * TIME_PERIOD / 60;
+    y += vy * INTERVAL * TIME_PERIOD / 60;
 
     walk.push({
       walker: this_walker,
-      time: i,
+      time: time,
       x: x,
       y: y
     });
   }
-  return { walk, walker, resolved, velocity };
+  return { walk, walker, resolved };
 }
 
 const coords = new CoordinateTransforms(CENTER);
 function randomId() {
-  return cryptoRandomString({ length: 10 });
+  return cryptoRandomString({ length: 20 });
 }
 
 function generateAgents() {
   const agents = [];
   const s = SCALE_METERS * 0.5;
-  const N_PER_ROW = 20;
-  const RANGE_M = 30;
 
   /* Generate a 20x20 grid where 400 agents(devices) are deployed. */
+  let idx = 0;
+  let idy = 0;
   linspace(-s, s, N_PER_ROW).forEach((x) => {
     linspace(-s, s, N_PER_ROW).forEach((y) => {
       agents.push({
-        id: randomId(),
+        id: idx + 'EVEN' + idy,
         location: coords.enu2wgs(x, y),
+        position: {x: x, y: y},
         range: RANGE_M
       });
+      idy += 1;
     });
+    idx += 1;
   });
+
+  // idx = 0;
+  // idy = 0;
+  // linspace(-s+RANGE_M, s-RANGE_M, N_PER_ROW-1).forEach((x) => {
+  //   linspace(-s+RANGE_M, s-RANGE_M, N_PER_ROW-1).forEach((y) => {
+  //     agents.push({
+  //       id: idx + 'ODD' + idy,
+  //       location: coords.enu2wgs(x, y),
+  //       position: {x: x, y: y},
+  //       range: RANGE_M
+  //     });
+  //     idy += 1;
+  //   });
+  //   idx += 1;
+  // });
+
   return agents;
 }
 
@@ -135,17 +156,32 @@ function generateReports(agents) {
 
   const walks = [];
   const walkers = [];
-  const velocitys = [];
 
   /* For 300 people */
-  for (let i = 0; i < N_WALKS; ++i) {
+  let i = 0;
+  while (i < N_WALKS) {
     /* Only 5% of them are infected, thus their IDs are known. */
 
     /* Generate the walking path of the person. */
-    const { walk, walker, resolved, velocity } = randomWalk({
+    const { walk, walker, resolved } = randomWalk({
       x: randomNormal({ dev: SCALE_METERS }),
       y: randomNormal({ dev: SCALE_METERS })
     }, i);
+
+    let numInArea = 0;
+    if (ONLY_IN_AREA) {
+      walk.forEach(( walk ) => {
+        if (walk.x < -SCALE_METERS/2 || walk.x > SCALE_METERS/2 ||
+          walk.y < -SCALE_METERS/2 || walk.y > SCALE_METERS/2) {
+          
+        } else {
+          numInArea += 1;
+        }
+      });
+      if (numInArea < WALK_LENGTH) {
+        continue;
+      }
+    }
 
     const resolvedId = i;
     if (resolved) {
@@ -170,29 +206,50 @@ function generateReports(agents) {
       if (resolved) resolvedMap[resolvedId].push(id);
       let anyHits = false;
 
-      agents
+      filtered_agents = agents
         .filter((agent) => coords.distance(loc, agent.location) < agent.range)
+      //   .sort((a, b) => {
+      //     return coords.distance(loc, a.location) - coords.distance(loc, b.location)
+      //   })
+      // if (filtered_agents.length >= 1) {
+      //   anyHits = true;
+      //   let agent = filtered_agents[0];
+      //   contacts.push({
+      //     id: id,
+      //     agent: agent, 
+      //     walker: walk.walker,
+      //     time: walk.time,
+      //     json: {
+      //       distance: coords.distance(loc, agent.location),
+      //       agentPos: coords.wgs2enu(agent.location.latitude, agent.location.longitude)
+      //     }
+      //   })
+      // }
         .forEach((agent) => {
           anyHits = true;
           contacts.push({
-            id,
-            agent
+            id: id,
+            agent: agent, 
+            walker: walk.walker,
+            time: walk.time,
+            json: {
+              distance: coords.distance(loc, agent.location),
+              agentPos: coords.wgs2enu(agent.location.latitude, agent.location.longitude)
+            }
           });
         });
       if (anyHits) nHits++;
     });
 
-    velocity.forEach(( v ) => {
-    	velocitys.push(v);
-    });
     totalHits += nHits;
     totalBroadcasts += walk.length;
+    i++;
   }
 
   const coverRate = Math.round(totalHits / totalBroadcasts * 100);
   console.log(`simulated ${totalBroadcasts} broadcasts and generated `
     + `${contacts.length} contact(s). Cover rate ${coverRate}%`);
-  return { contacts, resolved: resolvedMap, walks, walkers, velocitys };
+  return { contacts, resolved: resolvedMap, walks, walkers };
 }
 
 function generateContactPairs(walks) {
@@ -229,20 +286,28 @@ function generateContactPairs(walks) {
 }
 
 async function generateDb() {
-  const { contacts, resolved, walks, walkers, velocitys } = generateReports(generateAgents());
+  const agents = generateAgents();
+  const { contacts, resolved, walks, walkers } = generateReports(agents);
   const contact_pairs = generateContactPairs(walks);
   await db.clearAll();
 
+  await Promise.all(agents.map((agent) => db.insertAgent({
+    agentId: agent.id,
+    agentJson: agent
+  })));
   await Promise.all(contacts.map((contact) => db.insert({
     rollingId: contact.id,
-    contactJson: {},
+    contactJson: contact.json,
     agentId: contact.agent.id,
-    agentJson: contact.agent
+    walkerId: contact.walker.id,
+    agentJson: contact.agent,
+    time: contact.time
   })));
   console.log('inserted contacts');
 
   await Promise.all(walkers.map((walker) => db.insertWalker({
   	id: walker.id,
+    time: walker.time,
   	resolved: walker.resolved,
   	real_id: walker.real_id
   })));
@@ -259,23 +324,6 @@ async function generateDb() {
     }
   })))
   console.log('inserted walks');
-
-  await Promise.all(velocitys.map((v) => db.insertV({
-    walkerId: v.walker.id,
-    time: v.time,
-    x_json: {
-    	mean: v.meanx,
-    	dev: v.dev,
-    	v: v.vx
-    },
-    y_json: {
-    	mean: v.meany,
-    	dev: v.dev,
-    	v: v.vy
-    },
-		ratio: v.ratio,
-  })))
-  console.log('inserted velocitys');
 
   await Promise.all(contact_pairs.map((pair) => db.insertPair({
     id1: pair.id1,

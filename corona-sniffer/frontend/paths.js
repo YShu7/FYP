@@ -4,7 +4,7 @@ function initializeMap(bounds) {
   const map = L.map('map').fitBounds(bounds);
   const mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
   L.tileLayer(
-      'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      '', {
       attribution: '&copy; ' + mapLink + ' Contributors',
       maxZoom: 19,
       }).addTo(map);
@@ -15,6 +15,35 @@ const fetchJson = (url) => fetch(url).then(response => response.json());
 
 function buildAgentClusters(data) {
   const agentClusters = {};
+
+  data.filter(d => d.json && d.json.location).forEach(d => {
+    const id = d.id;
+
+    agentClusters[id] = {
+      location: d.json.location,
+      nResolved: 0,
+      nTotal: 0
+    };
+  });
+
+  const markers = L.featureGroup();
+  Object.values(agentClusters).map((cluster) => {
+    const loc = [cluster.location.latitude, cluster.location.longitude];
+
+    L.circleMarker(loc, {
+        radius: 10,
+        fillColor: 'blue',
+        fillOpacity: 0.1,
+        stroke: false
+      })
+      .addTo(markers);
+  });
+  return markers;
+}
+
+function buildWalkerClusters(data) {
+  const agentClusters = {};
+
   data.filter(d => d.json && d.json.location).forEach(d => {
     const id = d.walker_id + d.time;
     agentClusters[id] = {
@@ -27,8 +56,8 @@ function buildAgentClusters(data) {
   Object.values(agentClusters).map((cluster) => {
     const loc = [cluster.location.latitude, cluster.location.longitude];
     L.circleMarker(loc, {
-        radius: cluster.resolved ? 5 : 1,
-        fillColor: cluster.resolved ? 'red' : 'blue',
+        radius: 1,
+        fillColor: 'blue',
         fillOpacity: 0.8,
         stroke: false
       })
@@ -41,12 +70,19 @@ function buildAgentClusters(data) {
 function buildResolvedPaths(data) {
   const paths = {};
   let maxTotal = 1;
+  let startTime = 0;
+  let nLines = 0;
   data.filter(d => d.json && d.json.location).forEach(d => {
     const id = d.walker_id;
     if (!paths[id]) paths[id] = [];
+    if (startTime == 0 || d.walk_time < startTime) {
+      startTime = d.walk_time;
+    } else if (startTime == d.walk_time) {
+      nLines += 1;
+    }
     paths[id].push({
       location: d.json.location,
-      time: d.time,
+      time: d.walk_time,
       nodeId: d.walker_id + d.time,
       resolved: d.json.resolved == 1
     });
@@ -54,11 +90,15 @@ function buildResolvedPaths(data) {
 
   const lines = L.featureGroup();
   let lineIdx = 0;
-  const nLines = Object.keys(paths).length;
+  // const nLines = Object.keys(paths).length;
   Object.entries(paths).map(([id, points]) => {
     points.sort(function(a,b) {
       return parseInt(a.time) > parseInt(b.time) ? 1 : -1;
     });
+
+    if (startTime == points[0].time) {
+      lineIdx++;
+    } 
 
     let prevNodeId = null;
     const deduplicated = [];
@@ -77,16 +117,21 @@ function buildResolvedPaths(data) {
     L.polyline(coords, {
       color: `hsl(${hue}, 100%, 80%)`
     }).addTo(lines);
-    lineIdx++;
+    
+    // lineIdx++;
   });
   return lines;
 }
 
 Promise.all([
+  fetchJson('/agents'),
   fetchJson('/walks')
-]).then(([walkData]) => {
-  const agentClusters = buildAgentClusters(walkData);
+]).then(([agentData, walkData]) => {
+  const agentClusters = buildAgentClusters(agentData);
+  const walkerClusters = buildWalkerClusters(walkData);
+  // const map = initializeMap(walkerClusters.getBounds());
   const map = initializeMap(agentClusters.getBounds());
-  agentClusters.addTo(map);
+  // agentClusters.addTo(map);
+  walkerClusters.addTo(map);
   buildResolvedPaths(walkData).addTo(map);
 });

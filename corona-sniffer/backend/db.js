@@ -15,6 +15,7 @@ function createTablesIfNeeded(db) {
         CREATE TABLE IF NOT EXISTS contacts (
           rolling_id text NOT NULL,
           agent_id text NOT NULL,
+          walker_id text NOT NULL,
           time text NOT NULL,
           json text NOT NULL,
           resolved_id text
@@ -22,17 +23,18 @@ function createTablesIfNeeded(db) {
         .run(`
         CREATE TABLE IF NOT EXISTS walkers (
           id text PRIMARY KEY,
+          id_time int NOT NULL,
           real_id int NOT NULL,
           resolved bool NOT NULL
         )`)
         .run(`
         CREATE TABLE IF NOT EXISTS walks (
           walker_id text NOT NULL,
-          time text NOT NULL,
+          walk_time text NOT NULL,
           x text NOT NULL,
           y text NOT NULL,
           json text NOT NULL,
-          PRIMARY KEY (walker_id, time),
+          PRIMARY KEY (walker_id, walk_time),
           FOREIGN KEY (walker_id) REFERENCES walkers(real_id)
         )`)
         .run(`
@@ -89,35 +91,42 @@ function databaseApi(db) {
   }
 
   return {
-    insert({
-      rollingId, contactJson, agentId, agentJson
+    insertAgent({
+      agentId, agentJson
     }) {
-      const timeStr = (new Date()).toISOString();
       return Promise.all([
         promiseRun(`
           INSERT INTO agents (id, json) VALUES (?, ?) ON CONFLICT(id) DO NOTHING`,
         [
           validated.id(agentId),
           validated.json(agentJson)
-        ]),
+        ])
+      ]);
+    },
+    insert({
+      rollingId, contactJson, agentId, walkerId, agentJson, time
+    }) {
+      return Promise.all([
         promiseRun(`
-          INSERT INTO contacts (rolling_id, agent_id, time, json) VALUES (?, ?, ?, ?)`,
+          INSERT INTO contacts (rolling_id, agent_id, walker_id, time, json) VALUES (?, ?, ?, ?, ?)`,
         [
           validated.id(rollingId),
           validated.id(agentId),
-          timeStr,
+          validated.id(walkerId),
+          time,
           validated.json(contactJson)
         ])
       ]);
     },
     insertWalker({
-      id, resolved, real_id
+      id, time, resolved, real_id
     }) {
       return Promise.all([
         promiseRun(`
-          INSERT INTO walkers (id, resolved, real_id) VALUES (?, ?, ?)`,
+          INSERT INTO walkers (id, id_time, resolved, real_id) VALUES (?, ?, ?, ?)`,
         [
           validated.id(id),
+          time,
           resolved,
           real_id
         ])
@@ -128,7 +137,7 @@ function databaseApi(db) {
     }) {
       return Promise.all([
         promiseRun(`
-          INSERT INTO walks (walker_id, time, x, y, json) VALUES (?, ?, ?, ?, ?)`,
+          INSERT INTO walks (walker_id, walk_time, x, y, json) VALUES (?, ?, ?, ?, ?) ON CONFLICT(walker_id, walk_time) DO NOTHING`,
         [
           validated.id(walkerId),
           time,
@@ -143,7 +152,7 @@ function databaseApi(db) {
     }) {
       return Promise.all([
         promiseRun(`
-          INSERT INTO velocitys (walker_id, time, x_json, y_json, ratio) VALUES (?, ?, ?, ?, ?)`,
+          INSERT INTO velocitys (walker_id, time, x_json, y_json, ratio) VALUES (?, ?, ?, ?, ?) ON CONFLICT(walker_id, time) DO NOTHING`,
         [
           validated.id(walkerId),
           time,
@@ -194,6 +203,15 @@ function databaseApi(db) {
         cb(result);
       }, finalize);
     },
+    getAgents(each, finalize) {
+      db.each(`
+        SELECT * FROM agents
+      `,
+      (err, result) => {
+        if (err) throw err;
+        each(result);
+      }, finalize);
+    },
     getWalks(each, finalize) {
       db.each(`
         SELECT * FROM walks
@@ -212,6 +230,16 @@ function databaseApi(db) {
         each(result);
       }, finalize);
     },
+    getWalksGT(each, finalize) {
+      db.each(`
+        SELECT * FROM walks
+        INNER JOIN walkers ON walkers.id = walks.walker_id
+      `,
+      (err, result) => {
+        if (err) throw err;
+        each(result);
+      }, finalize);
+    },
     clearAll() {
       console.log('clearing database');
       return Promise.all([
@@ -220,7 +248,7 @@ function databaseApi(db) {
         'DROP TABLE walkers',
         'DROP TABLE walks',
         'DROP TABLE pairs',
-        'DROP TABLE walks_attached',
+        'DROP TABLE IF EXISTS walks_attached',
         'DROP TABLE velocitys'
       ].map((stm) => promiseRun(stm)))
         .then(() => createTablesIfNeeded(db));
@@ -234,7 +262,7 @@ function databaseApi(db) {
 }
 
 function createAndConnect() {
-  const dbFile = 'data/database_3000.db';
+  const dbFile = 'data/database_3000_test.db';
   const db = new sqlite3.Database(dbFile);
   createTablesIfNeeded(db);
   return databaseApi(db);
