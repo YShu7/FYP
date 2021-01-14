@@ -5,6 +5,7 @@ import json
 import numpy as np
 import collections
 from multiprocessing import Pool
+import statistics
 
 def get_distance(pre_json, curr_json):
     """
@@ -44,26 +45,36 @@ def get_position(df_agents):
 
 def get_agent_next_prob(df_walkers, df_contacts):
     prob = collections.defaultdict(collections.Counter)
-    walker_ids = df_walkers['id'].tolist()
-    
-    for walker_id in walker_ids:
-        df = df_contacts.loc[(df_contacts['walker_id'] == walker_id)]
+    prob_dir = collections.defaultdict(collections.Counter)
+    real_ids = set(df_walkers['real_id'].tolist())
+
+    for real_id in real_ids:
+        walker_ids = set(df_walkers.loc[df_walkers['real_id'] == real_id]['id'].tolist())
+        df = df_contacts.loc[df_contacts['walker_id'].isin(walker_ids)]
+
         times = set(df['time'].tolist())
         for time in times:
-            row2 = df.loc[df['time'] == str(int(time) + 1)]
-            if row2.shape[0] == 0:
+            row2s = df.loc[(df['time'] == str(int(time) + 60))]
+            if row2s.shape[0] == 0:
                 continue
-                
-            row1 = pd.DataFrame(df.loc[df['time'] == time]
-            .sort_values(by='json',
-                         key=lambda col: pd.Series([float(json.loads(c)['distance']) for c in col])))
-#             row1 = df.iloc[df['json'].str.get('distance').astype(float).argsort()]
-        
-            
-            agent_id1 = row1.iloc[0]['agent_id']
-            agent_id2 = row2.iloc[0]['agent_id']
-            prob[agent_id1][agent_id2] += 1
-    return prob
+
+            row1s = df.loc[df['time'] == time]
+#             .sort_values(by='json',
+#                          key=lambda col: pd.Series([float(json.loads(c)['distance']) for c in col])))
+    #             row1 = df.iloc[df['json'].str.get('distance').astype(float).argsort()]
+
+            for _, row1 in row1s.iterrows():
+                for _, row2 in row2s.iterrows():
+                    agent_id1 = row1['agent_id']
+                    agent_id2 = row2['agent_id']
+                    json1 = json.loads(row1['json'])
+                    json2 = json.loads(row2['json'])
+                    x_dir = json2['agentPos']['x'] - json1['agentPos']['x']
+                    y_dir = json2['agentPos']['y'] - json1['agentPos']['y']
+        #             print("{:.2f}".format(x_dir))
+                    prob[agent_id1][agent_id2] += 1
+                    prob_dir["{:.2f}".format(x_dir)]["{:.2f}".format(y_dir)] += 1
+    return prob, prob_dir
 
 def map_prob_to_pos(prob, id_to_pos):
     dic = {}
@@ -85,3 +96,41 @@ def map_prob_to_agent_id(prob, pos_to_id):
                 tmp[pos_to_id[k2]] = v2
         dic[pos_to_id[k]] = tmp
     return dic
+
+def get_mean_v(last_rows, pre_rows):
+    velocities_x, velocities_y = [], []
+    for _, row2 in last_rows.iterrows():
+        json2 = json.loads(row2['json'])['agentPos']
+        for _, row1 in pre_rows.iterrows():
+            json1 = json.loads(row1['json'])['agentPos']
+            velocities_x.append(json2['x'] - json1['x'])
+            velocities_y.append(json2['y'] - json1['y'])
+    vx, vy = statistics.mean(velocities_x), statistics.mean(velocities_y)
+    return vx, vy
+
+def get_direct_prob(prob_agent_id, agent_id1, agent_id2):
+    try:
+        return prob_agent_id[agent_id1][agent_id2] / sum(prob_agent_id[agent_id1])
+    except:
+        return 0
+    
+def get_dis_prob(json1, json2, vx, vy):
+    dis = math.sqrt((float(json2['x']) - (float(json1['x']) + vx)) ** 2 + (float(json2['y']) - (float(json1['y']) + vy)) ** 2)
+    if (dis > 50):
+        return -float('inf')
+    return 1 / dis if dis != 0 else 100
+
+def get_direction_prob(json1, json2, prob_dir):
+    try:
+        x_dir, y_dir = "{:.2f}".format(json2['x'] - json1['x']), "{:.2f}".format(json2['y'] - json1['y'])
+        return prob_dir[x_dir][y_dir] / sum(prob_dir[x_dir])
+    except:
+        return 0
+
+def get_avg_prob(candidate_agent_probs, walker_id2, new_prob, weight):
+    if walker_id2 in candidate_agent_probs:
+        tmp = candidate_agent_probs[walker_id2][0] * candidate_agent_probs[walker_id2][1]
+        return ((tmp + new_prob * weight) / (candidate_agent_probs[walker_id2][1] + weight), 
+                candidate_agent_probs[walker_id2][1] + weight)
+    else:
+        return (new_prob, weight)

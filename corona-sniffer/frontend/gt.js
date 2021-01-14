@@ -4,7 +4,7 @@ function initializeMap(bounds) {
   const map = L.map('map').fitBounds(bounds);
   const mapLink = '<a href="http://openstreetmap.org">OpenStreetMap</a>';
   L.tileLayer(
-      'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      '', {
       attribution: '&copy; ' + mapLink + ' Contributors',
       maxZoom: 19,
       }).addTo(map);
@@ -118,7 +118,7 @@ Promise.all([
   const walkerClusters = buildWalkerClusters(walkData);
   // const map = initializeMap(walkerClusters.getBounds());
   const map = initializeMap(agentClusters.getBounds());
-  agentClusters.addTo(map);
+  // agentClusters.addTo(map);
   walkerClusters.addTo(map);
   buildResolvedPaths(walkData).addTo(map);
 });
