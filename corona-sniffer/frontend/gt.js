@@ -44,7 +44,7 @@ function buildAgentClusters(data) {
 function buildWalkerClusters(data) {
   const agentClusters = {};
   data.filter(d => d.json && d.json.location).forEach(d => {
-    const id = d.walker_id + '-' + d.walk_time;
+    const id = d.real_id;
     agentClusters[id] = {
       location: d.json.location,
       resolved: d.json.resolved == 1
@@ -102,10 +102,28 @@ function buildResolvedPaths(data) {
       p.location.longitude + offset*0.5
     ]);
     const hue = Math.round(lineIdx / nLines * 360);
-    L.polyline(coords, {
-      color: `hsl(${hue}, 100%, 80%)`
-    }).addTo(lines);
+    var polyline = L.polyline(coords, {
+      color: `hsl(${hue}, 100%, 80%)`,
+      opacity: 0.5
+    });
+    polyline.addTo(lines);
     lineIdx++;
+
+    polyline.on('mouseover', function(ev) {
+      this.setStyle({
+        color: 'black',
+        opacity: 1
+      });
+    });
+    polyline.on('mouseout', function() {
+      this.setStyle({
+        color: `hsl(${hue}, 100%, 80%)`,
+        opacity: 0.5
+      })
+    });
+    polyline.on('click', function () {
+      alert("You clicked the map at " + id);
+    });
   });
   return lines;
 }

@@ -298,6 +298,7 @@ async function generateDb() {
   await Promise.all(contacts.map((contact) => db.insert({
     rollingId: contact.id,
     contactJson: contact.json,
+    distance: contact.json.distance,
     agentId: contact.agent.id,
     walkerId: contact.walker.id,
     agentJson: contact.agent,

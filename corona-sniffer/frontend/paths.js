@@ -45,7 +45,7 @@ function buildWalkerClusters(data) {
   const agentClusters = {};
 
   data.filter(d => d.json && d.json.location).forEach(d => {
-    const id = d.walker_id + d.time;
+    const id = d.walker_id + '-' + d.walk_time;
     agentClusters[id] = {
       location: d.json.location,
       resolved: d.json.resolved == 1
@@ -71,34 +71,35 @@ function buildResolvedPaths(data) {
   const paths = {};
   let maxTotal = 1;
   let startTime = 0;
-  let nLines = 0;
+  // let nLines = 0;
   data.filter(d => d.json && d.json.location).forEach(d => {
     const id = d.walker_id;
     if (!paths[id]) paths[id] = [];
-    if (startTime == 0 || d.walk_time < startTime) {
-      startTime = d.walk_time;
-    } else if (startTime == d.walk_time) {
-      nLines += 1;
-    }
+    // if (startTime == 0 || d.walk_time < startTime) {
+    //   startTime = d.walk_time;
+    // } else if (startTime == d.walk_time) {
+    //   nLines += 1;
+    // }
     paths[id].push({
       location: d.json.location,
       time: d.walk_time,
-      nodeId: d.walker_id + d.time,
+      nodeId: d.walker_id + '-' + d.walk_time,
       resolved: d.json.resolved == 1
     });
   });
 
   const lines = L.featureGroup();
   let lineIdx = 0;
-  // const nLines = Object.keys(paths).length;
+  const nLines = Object.keys(paths).length;
+  console.log(paths);
   Object.entries(paths).map(([id, points]) => {
     points.sort(function(a,b) {
       return parseInt(a.time) > parseInt(b.time) ? 1 : -1;
     });
 
-    if (startTime == points[0].time) {
-      lineIdx++;
-    } 
+    // if (startTime == points[0].time) {
+    //   lineIdx++;
+    // } 
 
     let prevNodeId = null;
     const deduplicated = [];
@@ -114,11 +115,22 @@ function buildResolvedPaths(data) {
       p.location.longitude + offset*0.5
     ]);
     const hue = Math.round(lineIdx / nLines * 360);
-    L.polyline(coords, {
+    var polyline = L.polyline(coords, {
       color: `hsl(${hue}, 100%, 80%)`
-    }).addTo(lines);
-    
-    // lineIdx++;
+    });
+    polyline.addTo(lines);
+    lineIdx++;
+
+    polyline.on('mouseover', function(ev) {
+      this.setStyle({
+          color: 'black'   //or whatever style you wish to use;
+      });
+    });
+    polyline.on('mouseout', function() {
+      this.setStyle({
+        color: `hsl(${hue}, 100%, 80%)`
+      })
+    });
   });
   return lines;
 }

@@ -18,7 +18,8 @@ function createTablesIfNeeded(db) {
           walker_id text NOT NULL,
           time text NOT NULL,
           json text NOT NULL,
-          resolved_id text
+          resolved_id text,
+          distance text
         )`)
         .run(`
         CREATE TABLE IF NOT EXISTS walkers (
@@ -104,17 +105,18 @@ function databaseApi(db) {
       ]);
     },
     insert({
-      rollingId, contactJson, agentId, walkerId, agentJson, time
+      rollingId, contactJson, agentId, walkerId, agentJson, time, distance
     }) {
       return Promise.all([
         promiseRun(`
-          INSERT INTO contacts (rolling_id, agent_id, walker_id, time, json) VALUES (?, ?, ?, ?, ?)`,
+          INSERT INTO contacts (rolling_id, agent_id, walker_id, time, json, distance) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           validated.id(rollingId),
           validated.id(agentId),
           validated.id(walkerId),
           time,
-          validated.json(contactJson)
+          validated.json(contactJson),
+          distance,
         ])
       ]);
     },
@@ -262,7 +264,7 @@ function databaseApi(db) {
 }
 
 function createAndConnect() {
-  const dbFile = 'data/database_3000_test.db';
+  const dbFile = 'data/database_100-_test.db';
   const db = new sqlite3.Database(dbFile);
   createTablesIfNeeded(db);
   return databaseApi(db);

@@ -43,6 +43,7 @@ function buildAgentClusters(data) {
 
 function buildWalkerClusters(data) {
   const agentClusters = {};
+
   data.filter(d => d.json && d.json.location).forEach(d => {
     const id = d.walker_id + '-' + d.walk_time;
     agentClusters[id] = {
@@ -72,15 +73,15 @@ function buildResolvedPaths(data) {
   const paths = {};
   let maxTotal = 1;
   let startTime = 0;
-  let nLines = 0;
+  // let nLines = 0;
   data.filter(d => d.json && d.json.location).forEach(d => {
     const id = d.walker_id;
     if (!paths[id]) paths[id] = [];
-    if (startTime == 0 || d.walk_time < startTime) {
-      startTime = d.walk_time;
-    } else if (startTime == d.walk_time) {
-      nLines += 1;
-    }
+    // if (startTime == 0 || d.walk_time < startTime) {
+    //   startTime = d.walk_time;
+    // } else if (startTime == d.walk_time) {
+    //   nLines += 1;
+    // }
     paths[id].push({
       location: d.json.location,
       time: d.walk_time,
@@ -91,20 +92,21 @@ function buildResolvedPaths(data) {
 
   const lines = L.featureGroup();
   let lineIdx = 0;
-  // const nLines = Object.keys(paths).length;
+  const nLines = Object.keys(paths).length;
   Object.entries(paths).map(([id, points]) => {
 
     points.sort(function(a,b) {
       return parseInt(a.time) > parseInt(b.time) ? 1 : -1;
     });
-    lineIdx++;
-    // let prevNodeId = null;
-    // const deduplicated = [];
-    // points.forEach(p => {
-    //   console.log(p.nodeId);
-    //   if (p.nodeId !== prevNodeId) deduplicated.push(p);
-    //   prevNodeId = p.nodeId;
-    // });
+    console.log(points);
+
+    let prevNodeId = null;
+    const deduplicated = [];
+    points.forEach(p => {
+      // console.log(p.nodeId);
+      if (p.nodeId !== prevNodeId) deduplicated.push(p);
+      prevNodeId = p.nodeId;
+    });
     // small offset so it's possible to distinguish overlapping edges
     // when zooming in
     const offset = 0.00002 * lineIdx / nLines;
@@ -112,11 +114,29 @@ function buildResolvedPaths(data) {
       p.location.latitude + offset,
       p.location.longitude + offset*0.5
     ]);
-    const hue = Math.round(id / nLines * 360);
-    L.polyline(coords, {
-      color: `hsl(${hue}, 100%, 80%)`
-    }).addTo(lines);
-    // lineIdx++;
+    const hue = Math.round(lineIdx / nLines * 360);
+    var polyline = L.polyline(coords, {
+      color: `hsl(${hue}, 100%, 80%)`,
+      opacity: 0.5
+    });
+    polyline.addTo(lines);
+    lineIdx++;
+
+    polyline.on('mouseover', function(ev) {
+      this.setStyle({
+        color: 'black',   //or whatever style you wish to use;
+        opacity: 1
+      });
+    });
+    polyline.on('mouseout', function() {
+      this.setStyle({
+        color: `hsl(${hue}, 100%, 80%)`,
+        opacity: 0.5
+      })
+    });
+    polyline.on('click', function () {
+      alert("You clicked the map at " + id);
+    });
   });
   return lines;
 }
