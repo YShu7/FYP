@@ -45,3 +45,28 @@ class Net(nn.Module):
     if DEBUG: print('fc:', out.shape)
 
     return out
+
+
+DEBUG = False
+
+
+def evaluate(model, loader, criterion, device):
+  model.train(False)
+
+  running_loss = 0
+  running_corrects = 0
+
+  for data in loader:
+    inputs, targets = data
+    outputs = model(inputs.type(torch.FloatTensor).to(device)).to(device)  # .reshape(-1) #forward pass
+    _, preds = torch.max(outputs, 1)
+
+    loss = criterion(outputs, targets.to(device))
+
+    running_loss += loss.item()
+    running_corrects += torch.sum(preds == targets).item()
+
+  epoch_loss = running_loss / len(loader)
+  epochs_acc = running_corrects / len(loader)
+  print("loss: %1.5f, acc: %1.5f" % (epoch_loss, epochs_acc))
+  return epoch_loss, epochs_acc

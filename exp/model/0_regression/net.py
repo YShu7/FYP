@@ -47,16 +47,16 @@ class Net(nn.Module):
     out = self.fc(out)
     return out
 
-def evaluate(model, loader, criterion):
+def evaluate(model, loader, criterion, device):
   model.train(False)
   running_loss = 0
 
   for data in loader:
     inputs, targets = data
-    outputs = model(inputs)
-    loss = criterion(outputs, targets)
+    outputs = model(inputs.to(device))
+    loss = criterion(outputs.to(device), targets.to(device))
     running_loss += loss.item()
 
   epoch_loss = running_loss / len(loader)
-
+  print("loss: %1.5f" % (epoch_loss))
   return epoch_loss

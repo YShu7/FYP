@@ -46,7 +46,7 @@ class Net(nn.Module):
 
     return out
 
-def evaluate(model, loader, criterion):
+def evaluate(model, loader, criterion, device):
     model.train(False)
 
     running_loss = 0
@@ -56,5 +56,5 @@ def evaluate(model, loader, criterion):
         loss = criterion(outputs, targets.type(torch.FloatTensor).to(device))
         running_loss += loss.item()
     epoch_loss = running_loss / len(loader)
-
+    print("loss: %1.5f" % (epoch_loss))
     return epoch_loss

@@ -75,8 +75,8 @@ def train(model, train_loader, val_loader, criterion):
             optimizer.step()  # improve from loss, i.e backprop
 
         if (epoch + 1) % 50 == 0:
-            epoch_loss = evaluate(model, val_loader, )
-            print("Epoch: %d, loss: %1.5f" % (epoch + 1, epoch_loss))
+            print("Epoch: %d" % (epoch + 1))
+            epoch_loss = evaluate(model, val_loader, criterion)
 
             torch.save(model.state_dict(), f'{args.type}_e{epoch + 1}.pkl')
 
