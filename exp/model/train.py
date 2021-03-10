@@ -10,8 +10,6 @@ BI_CLASS = 1
 MULTI_CLASS = 2
 
 parser = argparse.ArgumentParser()
-parser.add_argument('integers', metavar='N', type=int, nargs='+',
-                    help='an integer for the accumulator')
 parser.add_argument('--type', type=int, default=0,
                     help="""
                     {}: Regressiont \n
@@ -22,10 +20,11 @@ parser.add_argument('--type', type=int, default=0,
 args = parser.parse_args()
 
 if args.type == REGRESSION:
-    pass
+    from regression.data import prepare_data, PathDataset
+    from regression.net import Net, evaluate
 elif args.type == BI_CLASS:
     from biclassification.data import prepare_data, PathDataset
-    from biclassification.net import Net
+    from biclassification.net import Net, evaluate
 elif args.type == MULTI_CLASS:
     pass
 
@@ -61,19 +60,6 @@ input_train, target_train = prepare_data(df_contacts, agent_to_ix, INPUT_DIM)
 train_loader = DataLoader(PathDataset(input_train[100:], target_train[100:], len(agent_to_ix)), batch_size=64, shuffle =True)
 val_loader = DataLoader(PathDataset(input_train[:100], target_train[:100], len(agent_to_ix)), batch_size=1, shuffle =False)
 
-def evaluate(model, loader, criterion):
-    model.train(False)
-
-    running_loss = 0
-    for data in loader:
-        inputs, targets = data
-        outputs = model(inputs.type(torch.FloatTensor).to(device)).to(device).reshape(-1)  # forward pass
-        loss = criterion(outputs, targets.type(torch.FloatTensor).to(device))
-        running_loss += loss.item()
-    epoch_loss = running_loss / len(loader)
-
-    return epoch_loss
-
 def train(model, train_loader, val_loader, criterion):
     for epoch in range(1000):  # again, normally you would NOT do 300 epochs, it is toy data
         model.train(True)
@@ -87,7 +73,7 @@ def train(model, train_loader, val_loader, criterion):
             optimizer.step()  # improve from loss, i.e backprop
 
         if (epoch + 1) % 50 == 0:
-            epoch_loss = evaluate(model, val_loader, criterion)
+            epoch_loss = evaluate(model, val_loader, )
             print("Epoch: %d, loss: %1.5f" % (epoch + 1, epoch_loss))
 
             torch.save(model.state_dict(), f'e{epoch + 1}.pkl')

@@ -45,3 +45,16 @@ class Net(nn.Module):
     if DEBUG: print('fc:', out.shape)
 
     return out
+
+def evaluate(model, loader, criterion):
+    model.train(False)
+
+    running_loss = 0
+    for data in loader:
+        inputs, targets = data
+        outputs = model(inputs.type(torch.FloatTensor).to(device)).to(device).reshape(-1)  # forward pass
+        loss = criterion(outputs, targets.type(torch.FloatTensor).to(device))
+        running_loss += loss.item()
+    epoch_loss = running_loss / len(loader)
+
+    return epoch_loss
