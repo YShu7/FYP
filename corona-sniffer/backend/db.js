@@ -16,10 +16,10 @@ function createTablesIfNeeded(db) {
           rolling_id text NOT NULL,
           agent_id text NOT NULL,
           walker_id text NOT NULL,
-          time text NOT NULL,
+          time int NOT NULL,
           json text NOT NULL,
           resolved_id text,
-          distance text
+          distance float
         )`)
         .run(`
         CREATE TABLE IF NOT EXISTS walkers (
@@ -32,8 +32,8 @@ function createTablesIfNeeded(db) {
         CREATE TABLE IF NOT EXISTS walks (
           walker_id text NOT NULL,
           walk_time text NOT NULL,
-          x text NOT NULL,
-          y text NOT NULL,
+          x float NOT NULL,
+          y float NOT NULL,
           json text NOT NULL,
           PRIMARY KEY (walker_id, walk_time),
           FOREIGN KEY (walker_id) REFERENCES walkers(real_id)
@@ -41,7 +41,7 @@ function createTablesIfNeeded(db) {
         .run(`
           CREATE TABLE IF NOT EXISTS velocitys (
           walker_id text NOT NULL,
-          time text NOT NULL,
+          time int NOT NULL,
           x_json text NOT NULL,
           y_json text NOT NULL,
           ratio float NOT NULL,
@@ -52,8 +52,8 @@ function createTablesIfNeeded(db) {
         CREATE TABLE IF NOT EXISTS pairs (
           id1 text NOT NULL,
           id2 text NOT NULL,
-          time text NOT NULL,
-          distance text NOT NULL,
+          time int NOT NULL,
+          distance float NOT NULL,
           PRIMARY KEY (id1, id2, time)
         )`)
         .run(`
@@ -264,7 +264,7 @@ function databaseApi(db) {
 }
 
 function createAndConnect() {
-  const dbFile = 'data/database_100-_test.db';
+  const dbFile = 'data/database_100+_train_2.db';
   const db = new sqlite3.Database(dbFile);
   createTablesIfNeeded(db);
   return databaseApi(db);

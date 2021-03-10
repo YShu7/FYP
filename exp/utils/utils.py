@@ -11,6 +11,13 @@ import time as Time
 
 IMPOSSIBLE = 1e-10
 
+def get_last_2_time(walk, walker_id):
+    time = sorted(set(walk['time'].tolist()))
+    if len(time) < 2:
+        return None, None
+    time1, time2 = time[-1], time[-2]
+    return time1, time2
+
 def get_distance(pre_json, curr_json):
     """
     get distance between two decives
@@ -47,7 +54,7 @@ def get_position(df_agents):
         
     return id_to_pos, pos_to_id
 
-def get_agent_next_prob(df_walkers, df_contacts):
+def get_agent_next_prob(df_walkers, df_contacts, agent_ids):
     prob = collections.defaultdict(collections.Counter)
     prob_dir = collections.defaultdict(collections.Counter)
     prob_move = {}
@@ -62,7 +69,7 @@ def get_agent_next_prob(df_walkers, df_contacts):
         start_time = Time.time()
         times = set(df['time'].tolist())
         for time in times:
-            row2s = df.loc[(df['time'] == str(int(time) + 60))]
+            row2s = df.loc[(df['time'] == int(time) + 60)]
             if row2s.shape[0] == 0:
                 continue
 
@@ -78,7 +85,16 @@ def get_agent_next_prob(df_walkers, df_contacts):
                     y_dir = json2['agentPos']['y'] - json1['agentPos']['y']
                     prob[agent_id1][agent_id2] += 1
                     prob_dir["{:.2f}".format(x_dir)]["{:.2f}".format(y_dir)] += 1
-#         print(Time.time() - start_time)
+
+    for agent_id1 in agent_ids:
+        for agent_id2 in agent_ids:
+            if agent_id1 in prob:
+                if agent_id2 in prob[agent_id1]:
+                    pass
+                else:
+                    prob[agent_id1][agent_id2] += 0.1
+            else:
+                prob[agent_id1][agent_id2] += 0.1
 
     for k in prob_dir.keys():
         prob_move[k] = 1 - prob_dir[k][k] / sum(prob_dir[k].values())
@@ -150,8 +166,40 @@ def get_direction_prob(json1, json2, prob_dir, agent_id):
 
 def get_avg_prob(candidate_agent_probs, walker_id2, new_prob, weight):
     if walker_id2 in candidate_agent_probs:
-        tmp = candidate_agent_probs[walker_id2][0] * candidate_agent_probs[walker_id2][1]
-        return ((tmp + new_prob * weight) / (candidate_agent_probs[walker_id2][1] + weight), 
+        tmp = candidate_agent_probs[walker_id2][0] * (1 / candidate_agent_probs[walker_id2][1])
+        return ((tmp + new_prob * (1 / weight)) * (candidate_agent_probs[walker_id2][1] + weight), 
                 candidate_agent_probs[walker_id2][1] + weight)
     else:
         return (new_prob, weight)
+    
+def get_prob(df_contacts, prob_agent_id, agent_id1, agent_id2, walker_id2, json1, json2, prob_dir, vx, vy, prob_move, time):
+    prob = []
+    
+    # direct
+    this_prob = get_direct_prob(prob_agent_id, agent_id1, agent_id2)
+    prob.append(this_prob)
+    
+    # distance
+    timec1, timec2 = get_last_2_time(df_contacts, walker_id2)
+    if not timec1 or not timec2:
+        vx2, vy2 = vx, vy
+    else:
+        last_rows2 = df_contacts.loc[(df_contacts['walker_id'] == walker_id2) & (df_contacts['time'] == timec1)]
+        pre_rows2 = df_contacts.loc[(df_contacts['walker_id'] == walker_id2) & (df_contacts['time'] == timec2)]
+        if last_rows2.shape[0] == 0 or pre_rows2.shape[0] == 0:
+            vx2, vy2 = vx, vy
+        else:
+            vx2, vy2 = get_mean_v(last_rows2, pre_rows2)
+    avg_dis2 = math.sqrt(((vx+vx2)/2) ** 2 + ((vy+vy2)/2) ** 2)
+
+    this_prob = get_dis_prob(json1, json2, (vx+vx2)/2, (vy+vy2)/2, 
+                             prob_move[agent_id1] if agent_id1 in prob_move else None,
+                             avg_dis=avg_dis2, time=time)
+
+    prob.append(this_prob)
+    
+    # direction
+    this_prob = get_direction_prob(json1, json2, prob_dir, agent_id1)
+    prob.append(this_prob)
+
+    return prob

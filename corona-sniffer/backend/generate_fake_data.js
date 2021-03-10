@@ -66,7 +66,7 @@ function randomWalk(startXY, walker_id) {
 
   const walk = [];
   const walker = [];
-  let curr_time = CURR_TIME - Math.floor(Math.random() * 15 * 60);
+  let curr_time = CURR_TIME - Math.floor(Math.random() * 10 * 60);
   const resolved = Math.random() < RESOLVE_PROB;
 
   for (let i = 0; i < (WALK_LENGTH / (UPDATE_TIME / INTERVAL)) + 2; i++) {
