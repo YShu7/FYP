@@ -16,6 +16,8 @@ parser.add_argument('--type', type=int, default=0,
                     {}: Binary Classification \n
                     {}: Multiple Classification
                     """.format(REGRESSION, BI_CLASS, MULTI_CLASS))
+parser.add_argument('--bidirectional', action='store_true')
+parser.set_defaults(bidirectional=False)
 
 args = parser.parse_args()
 
@@ -76,9 +78,9 @@ def train(model, train_loader, val_loader, criterion):
             epoch_loss = evaluate(model, val_loader, )
             print("Epoch: %d, loss: %1.5f" % (epoch + 1, epoch_loss))
 
-            torch.save(model.state_dict(), f'e{epoch + 1}.pkl')
+            torch.save(model.state_dict(), f'{args.type}_e{epoch + 1}.pkl')
 
-model = Net(HIDDEN_DIM).to(device)
+model = Net(HIDDEN_DIM, bidirectional=args.bidirectional).to(device)
 print(model)
 criterion = torch.nn.MSELoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
