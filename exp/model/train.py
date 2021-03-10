@@ -1,11 +1,33 @@
+import argparse
 import sqlite3
 import pandas as pd
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from data import prepare_data, PathDataset
-from net import Net
+REGRESSION = 0
+BI_CLASS = 1
+MULTI_CLASS = 2
+
+parser = argparse.ArgumentParser()
+parser.add_argument('integers', metavar='N', type=int, nargs='+',
+                    help='an integer for the accumulator')
+parser.add_argument('--type', type=int, default=0,
+                    help="""
+                    {}: Regressiont \n
+                    {}: Binary Classification \n
+                    {}: Multiple Classification
+                    """.format(REGRESSION, BI_CLASS, MULTI_CLASS))
+
+args = parser.parse_args()
+
+if args.type == REGRESSION:
+    pass
+elif args.type == BI_CLASS:
+    from biclassification.data import prepare_data, PathDataset
+    from biclassification.net import Net
+elif args.type == MULTI_CLASS:
+    pass
 
 torch.manual_seed(1)
 torch.use_deterministic_algorithms(True)
@@ -16,7 +38,7 @@ TIME_PERIOD = 1
 MINUTE = 10
 UPDATE_TIME = MINUTE * INTERVAL
 N, M = 30, 91
-PATH = "../../../corona-sniffer/backend/data"
+PATH = "../../corona-sniffer/backend/data"
 TRAIN_DB = 'database_100+_train_2.db'
 TEST_DB = 'database_100-_test_2.db'
 
