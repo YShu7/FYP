@@ -1,10 +1,13 @@
 const fs = require('fs');
 const db = require('./db');
 
+// const PATH = '../../datasets/cabspottingdata/tmp';
+const PATH = '../../datasets/Geolife/tmp';
+
 async function generateDb() {
 	await db.clearAll();
 
-	await fs.readFile('../../datasets/tmp/agents.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/agents.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return
@@ -21,7 +24,7 @@ async function generateDb() {
 	    }
 	})
 
-	await fs.readFile('../../datasets/tmp/contacts.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/contacts.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return
@@ -43,7 +46,7 @@ async function generateDb() {
 	    }
 	})
 
-	await fs.readFile('../../datasets/tmp/walkers.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/walkers.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return
@@ -62,7 +65,7 @@ async function generateDb() {
 	    }
 	})
 
-	await fs.readFile('../../datasets/tmp/walks.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/walks.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return
@@ -88,7 +91,7 @@ async function generateDb() {
 	    }
 	})
 
-	await fs.readFile('../../datasets/tmp/contact_pairs.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/contact_pairs.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return
@@ -107,7 +110,7 @@ async function generateDb() {
 	    }
 	})
 
-	await fs.readFile('../../datasets/tmp/resolved.txt', 'utf8', (err, jsonString) => {
+	await fs.readFile(PATH + '/resolved.txt', 'utf8', (err, jsonString) => {
 	    if (err) {
 	        console.log("Error reading file from disk:", err)
 	        return

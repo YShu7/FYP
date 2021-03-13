@@ -27,7 +27,6 @@ class PathDataset(Dataset):
 def prepare_data(df_contacts, to_ix, input_dim):
   real_ids = set(df_contacts['real_id'].tolist())
   input, candidate, target = [], [], []
-  # For each words-list (sentence) and tags-list in each tuple of training_data
 
   for real_id in real_ids:
     walk = df_contacts.loc[df_contacts['real_id'] == real_id].sort_values('time')
@@ -40,9 +39,9 @@ def prepare_data(df_contacts, to_ix, input_dim):
     start_idx = 0
     while True:
       try:
-        curr_input = [to_ix[p] for p in path[start_idx:start_idx+10]]
-        curr_target = int(path[start_idx+10].split('EVEN')[1])
-        start_idx += input_dim
+        curr_input = [to_ix[p] for p in path[start_idx:start_idx+input_dim]]
+        curr_target = int(path[start_idx+input_dim].split('EVEN')[1])
+        start_idx += 2
 
         input.append(curr_input)
         target.append(curr_target)
